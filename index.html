@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NFSU2 Save Renamer</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1b1b1f; --muted:#5f6368; --line:#d0d3d8; --accent:#1a5fd0; --ok:#12733a; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16181d; --fg:#e8eaed; --muted:#9aa0a6; --line:#3a3f47; --accent:#7ab0ff; --ok:#5fd28a; --bad:#ff8a80; } }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:560px; margin:0 auto; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  p { margin:8px 0; }
+  .muted { color:var(--muted); font-size:.92rem; }
+  .drop { margin-top:16px; border:2px dashed var(--line); border-radius:10px; padding:28px 16px; text-align:center; cursor:pointer; }
+  .drop.over { border-color:var(--accent); }
+  .drop:focus-visible, button:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  #step2 { display:none; margin-top:20px; }
+  label { display:block; font-weight:600; margin-bottom:4px; }
+  input[type=text] { font:inherit; padding:8px 10px; width:12ch; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+  button { font:inherit; padding:8px 16px; border:0; border-radius:6px; background:var(--accent); color:var(--bg); cursor:pointer; margin-left:8px; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  code { font-family: ui-monospace, monospace; }
+  #msg.ok { color:var(--ok); } #msg.bad { color:var(--bad); }
+  .row { display:flex; align-items:center; flex-wrap:wrap; gap:4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>NFSU2 Save Renamer</h1>
+  <p class="muted">nfsu2.xyz only accepts saves whose internal name is 1&ndash;7 letters or digits. This page rewrites that name in a copy of your profile file. Everything runs in your browser: nothing is uploaded, and your original file is never modified.</p>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a save file">
+    <strong>Drop your profile file here</strong> or click to choose it<br>
+    <span class="muted">the file named like your profile (54,966 bytes, no extension)</span>
+    <input type="file" id="file" hidden>
+  </div>
+
+  <p id="msg" role="status"></p>
+
+  <div id="step2">
+    <p>Name inside the file: <code id="oldname"></code></p>
+    <label for="newname">New name (1&ndash;7 letters/digits)</label>
+    <div class="row">
+      <input type="text" id="newname" maxlength="7" autocomplete="off" spellcheck="false">
+      <button id="go" disabled>Download fixed copy</button>
+    </div>
+    <p class="muted">Then import the downloaded file on nfsu2.xyz.</p>
+  </div>
+</main>
+
+<script>
+// ---- core (pure functions; same format handling as nfsu2_rename_save.py) ----
+// CORE-BEGIN
+const SIZE = 54966, HDR = 36, NAME_OFF = HDR + 53761, NAME_LEN = 32, MAX_NAME = 7;
+const TABLE = (() => {
+  const t = [];
+  for (let n = 0; n < 256; n++) {
+    let e = (n << 24) >>> 0;
+    for (let k = 0; k < 8; k++) e = (e & 0x80000000) ? (((e << 1) ^ 0x04C11DB7) >>> 0) : ((e << 1) >>> 0);
+    t.push(e);
+  }
+  return t;
+})();
+function crc(b) {
+  if (b.length < 4) return 0;
+  let e = (~(((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0)) >>> 0;
+  for (let i = 4; i < b.length; i++) e = ((((e << 8) >>> 0) | b[i]) ^ TABLE[e >>> 24]) >>> 0;
+  return (~e) >>> 0;
+}
+function validName(s) { return /^[A-Za-z0-9]{1,7}$/.test(s); }
+function isProfile(b) {
+  return b.length === SIZE && b[0] === 0x32 && b[1] === 0x30 && b[2] === 0x43 && b[3] === 0x4D; // "20CM"
+}
+function readName(b) {
+  let s = "";
+  for (let i = NAME_OFF; i < NAME_OFF + NAME_LEN && b[i] !== 0; i++)
+    s += (b[i] >= 0x20 && b[i] < 0x7F) ? String.fromCharCode(b[i]) : "\\x" + b[i].toString(16).padStart(2, "0");
+  return s;
+}
+function renamed(src, name) {
+  const b = new Uint8Array(src);
+  b.fill(0, NAME_OFF, NAME_OFF + NAME_LEN);
+  for (let i = 0; i < name.length; i++) b[NAME_OFF + i] = name.charCodeAt(i);
+  const dv = new DataView(b.buffer);
+  dv.setUint32(16, crc(b.subarray(28, HDR)), true);
+  dv.setUint32(20, crc(b.subarray(HDR)), true);
+  dv.setUint32(24, crc(b.subarray(0, 24)), true);
+  return b;
+}
+function suggest(b) {
+  let s = "";
+  for (let i = NAME_OFF; i < NAME_OFF + NAME_LEN && b[i] !== 0; i++) {
+    const c = String.fromCharCode(b[i]);
+    if (/[A-Za-z0-9]/.test(c)) s += c;
+  }
+  return s.slice(0, MAX_NAME) || "Player";
+}
+// CORE-END
+
+// ---- page ----
+if (typeof document !== "undefined") {
+  const $ = id => document.getElementById(id);
+  let data = null;
+  const msg = (t, cls) => { $("msg").textContent = t; $("msg").className = cls || ""; };
+  const refresh = () => { $("go").disabled = !data || !validName($("newname").value); };
+
+  function load(file) {
+    $("step2").style.display = "none"; data = null;
+    if (!file) return;
+    file.arrayBuffer().then(buf => {
+      const b = new Uint8Array(buf);
+      if (!isProfile(b)) {
+        msg(`${file.name}: not an NFSU2 PC profile (expected 54,966 bytes starting with "20CM", got ${b.length} bytes).`, "bad");
+        return;
+      }
+      data = b;
+      const old = readName(b);
+      $("oldname").textContent = old;
+      $("newname").value = suggest(b);
+      $("step2").style.display = "block";
+      msg(validName(old) ? "This name is already accepted by nfsu2.xyz, but you can still rename it." : "", "");
+      refresh();
+    }, err => msg(`Cannot read ${file.name}: ${err}`, "bad"));
+  }
+
+  const drop = $("drop"), input = $("file");
+  drop.addEventListener("click", () => input.click());
+  drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", () => load(input.files[0]));
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); load(e.dataTransfer.files[0]); });
+  $("newname").addEventListener("input", refresh);
+  $("go").addEventListener("click", () => {
+    const name = $("newname").value;
+    if (!data || !validName(name)) return;
+    const url = URL.createObjectURL(new Blob([renamed(data, name)], { type: "application/octet-stream" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    msg(`Downloaded "${name}". Import it on nfsu2.xyz.`, "ok");
+  });
+}
+</script>
+</body>
+</html>

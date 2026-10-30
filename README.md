@@ -8,7 +8,11 @@ It helps with saves whose internal name is not 1 to 7 plain letters/digits: prof
 
 Not affiliated with nfsu2.xyz, its author, or Electronic Arts.
 
-## Usage
+## Option 1: in the browser (nothing to install)
+
+Open **https://veliga-syutkin.github.io/nfsu2-save-fix/** (or double-click `index.html` from a download), drop your profile file on the page, pick a new name, and download the fixed copy. Everything runs locally in your browser: nothing is uploaded.
+
+## Option 2: command line
 
 Python 3 is required, nothing else (standard library only). On Windows, use `py` (or `python`) instead of `python3`.
 
@@ -30,7 +34,7 @@ The layout comes from the public client code of nfsu2.xyz: 36-byte header, name 
 
 ## Status
 
-Tested on a real profile from the PC game (imported fine on nfsu2.xyz, and the game then ran normally). Saves from other-language releases are handled the same way (the whole name field is overwritten) but have only been tested on a simulated non-ASCII name. Issues and pull requests are welcome.
+Tested on a real profile from the PC game (imported fine on nfsu2.xyz, and the game then ran normally). Saves from other-language releases are handled the same way (the whole name field is overwritten) but have only been tested on a simulated non-ASCII name. The page and the script produce byte-identical output (checked with Node and Python); the page's drag-and-drop interface has had little testing, so please report problems. Issues and pull requests are welcome.
 
 ## License
 
