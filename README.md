@@ -34,7 +34,7 @@ The layout comes from the public client code of nfsu2.xyz: 36-byte header, name 
 
 ## Status
 
-Tested on a real profile from the PC game (imported fine on nfsu2.xyz, and the game then ran normally). Saves from other-language releases are handled the same way (the whole name field is overwritten) but have only been tested on a simulated non-ASCII name. The page and the script produce byte-identical output (checked with Node and Python); the page's drag-and-drop interface has had little testing, so please report problems. Issues and pull requests are welcome.
+Tested on a real profile from the PC game (imported fine on nfsu2.xyz, and the game then ran normally). Saves from other-language releases are handled the same way (the whole name field is overwritten) but have only been tested on a simulated non-ASCII name. The page and the script produce byte-identical output, and the page's drag-and-drop has been tried in a real browser (Chrome on Linux); other browsers and Windows are untested, so please report problems. Issues and pull requests are welcome.
 
 ## License
 
