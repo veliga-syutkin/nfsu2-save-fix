@@ -26,6 +26,12 @@ python3 nfsu2_rename_save.py rename MYPROFILE NEWNAME
 
 `NEWNAME` must be 1 to 7 ASCII letters or digits. Then import the resulting file on nfsu2.xyz.
 
+## Bonus: keep a copy of a save
+
+Renaming always produces a *copy*, so the same tool can duplicate a save, for example to try a risky approach without losing your progress. nfsu2.xyz identifies profiles by the name stored inside the file (and skips a profile whose name is already taken, ignoring capitals), so import the copy under a **different** name and you get two separate profiles. This works even if the original's name was already valid.
+
+Only the profile file itself is copied.
+
 ## What it accepts
 
 Standard PC profiles: exactly 54,966 bytes, starting with the magic `20CM`. Anything else is rejected with a message instead of being modified.
